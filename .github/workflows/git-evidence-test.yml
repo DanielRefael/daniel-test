@@ -1,0 +1,164 @@
+# Test workflow for the private JFrog Traceability action.
+# The action repo (SaharBracha/github-evidence) must allow this repository
+# under Settings → Actions → General → Access.
+name: JFrog Traceability (test)
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  push:
+    branches: [main]
+  branch_protection_rule:
+    types: [created, edited, deleted]
+
+permissions:
+  id-token: write       # required for JFrog OIDC + signing
+  contents: write
+  attestations: write   # required by actions/attest-build-provenance
+  actions: write        # detected by attest action for the GHA env
+  packages: write       # for uploading attestations.
+
+env:
+  IMAGE_NAME: daniel-test
+  EVIDENCE_KEY_ALIAS: github-evidence
+
+jobs:
+  evidence-and-publish:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       github.event.action != 'closed')
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Setup JFrog CLI
+        id: setup-jfrog-cli
+        uses: jfrog/setup-jfrog-cli@v4
+        env:
+          JF_URL: https://${{ vars.JF_URL }}
+        with:
+          oidc-provider-name: DanielRefael/daniel-test@github
+          version: latest
+
+      - name: Bump semver on push to main
+        if: github.event_name == 'push'
+        id: bump
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: patch
+
+      - name: Resolve image tag
+        id: tag
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          if [ -n "${NEW_VERSION}" ]; then
+            echo "tag=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=pr-${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to JFrog Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.JF_URL }}
+          username: ${{ steps.setup-jfrog-cli.outputs.oidc-user }}
+          password: ${{ steps.setup-jfrog-cli.outputs.oidc-token }}
+
+      - name: Build and push image
+        id: build-and-push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ vars.JF_URL }}/docker-local/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+
+      - name: Create SLSA provenance evidence on image
+        env:
+          EVIDENCE_KEY: ${{ secrets.EVIDENCE_KEY }}
+          EVIDENCE_KEY_ALIAS: ${{ env.EVIDENCE_KEY_ALIAS }}
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          # Signing key (PEM contents from the repo secret).
+          printf '%s\n' "$EVIDENCE_KEY" > evidence.key
+          chmod 600 evidence.key
+
+          # Derive ".github/workflows/<file>.yml" from "<owner>/<repo>/<path>@<ref>".
+          wf_path="${GITHUB_WORKFLOW_REF#"$GITHUB_REPOSITORY"/}"
+          wf_path="${wf_path%@*}"
+
+          # SLSA build provenance predicate (same shape as predicate-0.0.4.json),
+          # populated from the GitHub Actions context.
+          cat > predicate.json <<EOF
+          {
+            "buildDefinition": {
+              "buildType": "https://actions.github.io/buildtypes/workflow/v1",
+              "externalParameters": {
+                "workflow": {
+                  "path": "${wf_path}",
+                  "ref": "${GITHUB_REF}",
+                  "repository": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+                }
+              },
+              "internalParameters": {
+                "github": {
+                  "event_name": "${GITHUB_EVENT_NAME}",
+                  "repository_id": "${GITHUB_REPOSITORY_ID}",
+                  "repository_owner_id": "${GITHUB_REPOSITORY_OWNER_ID}",
+                  "runner_environment": "${RUNNER_ENVIRONMENT}"
+                }
+              },
+              "resolvedDependencies": [
+                {
+                  "digest": {
+                    "gitCommit": "${GITHUB_SHA}"
+                  },
+                  "uri": "git+${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}@${GITHUB_REF}"
+                }
+              ]
+            },
+            "runDetails": {
+              "builder": {
+                "id": "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}"
+              },
+              "metadata": {
+                "invocationId": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}"
+              }
+            }
+          }
+          EOF
+
+          # Attach evidence to the multi-arch image index.
+          jf evd create \
+            --predicate ./predicate.json \
+            --predicate-type "https://slsa.dev/provenance/v1" \
+            --provider-id github \
+            --key ./evidence.key \
+            --key-alias "$EVIDENCE_KEY_ALIAS" \
+            --subject-repo-path "docker-local/${IMAGE_NAME}/${IMAGE_TAG}/list.manifest.json"
+
+          rm -f evidence.key predicate.json
+
+  git-evidence:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true
+    runs-on: self-hosted
+    steps:
+      - uses: SaharBracha/github-evidence@APP-0-consumer-controlled-run-trigger
+        with:
+          jf_url: ${{ vars.JF_URL }}
+          oidc_provider_name: DanielRefael/daniel-test@github
+          evidence_signing_key: ${{ secrets.EVIDENCE_KEY }}
+          evidence_key_alias: ${{ env.EVIDENCE_KEY_ALIAS }}
