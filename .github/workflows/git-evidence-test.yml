@@ -139,25 +139,16 @@ jobs:
           }
           EOF
 
-          # Artifactory may not expose the pushed manifest to Evidence immediately.
-          # Retry the upload while that metadata becomes available.
-          for attempt in 1 2 3 4 5; do
-            if jf evd create \
-              --predicate ./predicate.json \
-              --predicate-type "https://slsa.dev/provenance/v1" \
-              --provider-id github \
-              --key ./evidence.key \
-              --key-alias "$EVIDENCE_KEY_ALIAS" \
-              --subject-repo-path "docker-local/${IMAGE_NAME}/${IMAGE_TAG}/list.manifest.json"; then
-              break
-            fi
-
-            if [ "$attempt" -eq 5 ]; then
-              exit 1
-            fi
-
-            sleep $((attempt * 5))
-          done
+          # The self-hosted runner keeps another JFrog server as its CLI default.
+          # Select the server configured by setup-jfrog-cli for this job.
+          jf evd create \
+            --server-id setup-jfrog-cli-server \
+            --predicate ./predicate.json \
+            --predicate-type "https://slsa.dev/provenance/v1" \
+            --provider-id github \
+            --key ./evidence.key \
+            --key-alias "$EVIDENCE_KEY_ALIAS" \
+            --subject-repo-path "docker-local/${IMAGE_NAME}/${IMAGE_TAG}/list.manifest.json"
 
           rm -f evidence.key predicate.json
 
