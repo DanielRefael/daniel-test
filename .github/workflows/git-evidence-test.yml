@@ -152,6 +152,17 @@ jobs:
 
           rm -f evidence.key predicate.json
 
+      - name: Create application version
+        if: github.event_name == 'push'
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          jf apptrust version-create "${IMAGE_NAME}" "${IMAGE_TAG}" \
+            --server-id setup-jfrog-cli-server \
+            --source-type-packages="type=docker, name=${IMAGE_NAME}, version=${IMAGE_TAG}, repo-key=docker-local" \
+            --tag "${GITHUB_SHA}"
+
   git-evidence:
     if: >-
       github.event_name == 'pull_request' &&
