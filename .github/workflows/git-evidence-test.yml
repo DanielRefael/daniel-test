@@ -20,6 +20,7 @@ permissions:
 env:
   IMAGE_NAME: daniel-test
   EVIDENCE_KEY_ALIAS: github-evidence
+  JF_HOST: z0yuriplugin1.jfrogdev.org
 
 jobs:
   evidence-and-publish:
@@ -41,9 +42,9 @@ jobs:
         id: setup-jfrog-cli
         uses: jfrog/setup-jfrog-cli@v4
         env:
-          JF_URL: https://${{ vars.JF_URL }}
+          JF_URL: https://${{ env.JF_HOST }}
+          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
         with:
-          oidc-provider-name: DanielRefael/daniel-test@github
           version: latest
 
       - name: Bump semver on push to main
@@ -69,9 +70,9 @@ jobs:
       - name: Log in to JFrog Docker Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.JF_URL }}
-          username: ${{ steps.setup-jfrog-cli.outputs.oidc-user }}
-          password: ${{ steps.setup-jfrog-cli.outputs.oidc-token }}
+          registry: ${{ env.JF_HOST }}
+          username: admin
+          password: ${{ secrets.JF_ACCESS_TOKEN }}
 
       - name: Build and push image
         id: build-and-push
@@ -79,7 +80,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ vars.JF_URL }}/docker-local/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+          tags: ${{ env.JF_HOST }}/docker-local/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
 
       - name: Create SLSA provenance evidence on image
         env:
@@ -158,7 +159,7 @@ jobs:
     steps:
       - uses: SaharBracha/github-evidence@APP-0-consumer-controlled-run-trigger
         with:
-          jf_url: ${{ vars.JF_URL }}
+          jf_url: ${{ env.JF_HOST }}
           oidc_provider_name: DanielRefael/daniel-test@github
           evidence_signing_key: ${{ secrets.EVIDENCE_KEY }}
           evidence_key_alias: ${{ env.EVIDENCE_KEY_ALIAS }}
