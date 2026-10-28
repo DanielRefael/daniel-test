@@ -7,3 +7,5 @@ THIS COMMIT RUNS OVER CAPS. ALL OF THIS TEXT IS CAPITAL LETTERS AND VIOLATES THE
 ANOTHER LINE RUNS OVER CAPS ON PURPOSE SO THE NEW POLICY CAN BE SCORED.
 
 A third note so the next application version can be created.
+
+A fourth note so another application version can be created.
