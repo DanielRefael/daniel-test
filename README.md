@@ -15,3 +15,5 @@ A fifth note so version 0.0.8 can be created.
 A sixth note so the released version can be compared.
 
 A seventh note so the GitHub compare can run.
+
+An eighth note so the central-integration compare can run.
