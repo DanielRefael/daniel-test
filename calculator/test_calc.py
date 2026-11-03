@@ -84,6 +84,34 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertNotIn("result", body)
 
+    def test_plus_logs_user_info_at_debug(self):
+        with self.assertLogs("calculator.server", level="DEBUG") as captured:
+            status, body = self.post({"operation": "add", "a": 1, "b": 2})
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"result": 3})
+        self.assertTrue(
+            any(
+                "user info" in line and "operation=add" in line and "a=1" in line and "b=2" in line
+                for line in captured.output
+            )
+        )
+
+    def test_plus_logs_unreadable_user_info_and_keeps_the_error(self):
+        data = b"not-json"
+        request = urllib.request.Request(
+            self.url, data=data, headers={"Content-Type": "application/json"}
+        )
+        with self.assertLogs("calculator.server", level="DEBUG") as captured:
+            try:
+                with urllib.request.urlopen(request) as response:
+                    status, body = response.status, json.loads(response.read().decode())
+            except urllib.error.HTTPError as error:
+                with error:
+                    status, body = error.code, json.loads(error.read().decode())
+        self.assertEqual(status, 400)
+        self.assertNotIn("result", body)
+        self.assertTrue(any("user info unreadable" in line for line in captured.output))
+
 
 if __name__ == "__main__":
     unittest.main()

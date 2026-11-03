@@ -1,7 +1,22 @@
 import json
+import logging
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from calculator.calc import CalculationError, calculate
+
+logger = logging.getLogger(__name__)
+
+
+def _debug_user_info(payload):
+    if not isinstance(payload, dict):
+        logger.debug("plus user info missing")
+        return
+    logger.debug(
+        "plus user info operation=%s a=%s b=%s",
+        payload.get("operation"),
+        payload.get("a"),
+        payload.get("b"),
+    )
 
 
 def outcome(payload):
@@ -24,8 +39,10 @@ class CalculatorHandler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(raw.decode() or "null")
         except json.JSONDecodeError:
+            logger.debug("plus user info unreadable")
             self._send(400, {"error": "a number is missing or is not a number"})
             return
+        _debug_user_info(payload)
         status, body = outcome(payload)
         self._send(status, body)
 
