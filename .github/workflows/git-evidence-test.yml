@@ -20,7 +20,7 @@ permissions:
 env:
   IMAGE_NAME: daniel-test
   EVIDENCE_KEY_ALIAS: github-evidence
-  JF_HOST: z0yuriplugin1.jfrogdev.org
+  JF_HOST: z0apptrustagenticdemo1.jfrogdev.org
 
 jobs:
   evidence-and-publish:
