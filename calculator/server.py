@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 
 def _debug_user_info(payload):
     if not isinstance(payload, dict):
-        logger.debug("calculate user info missing")
+        logger.debug("plus user info missing")
         return
     logger.debug(
-        "calculate user info operation=%s a=%s b=%s",
+        "plus user info operation=%s a=%s b=%s",
         payload.get("operation"),
         payload.get("a"),
         payload.get("b"),
@@ -31,7 +31,7 @@ def outcome(payload):
 
 class CalculatorHandler(BaseHTTPRequestHandler):
     def do_POST(self):
-        if self.path != "/calculate":
+        if self.path != "/plus":
             self._send(404, {"error": "unknown operation"})
             return
         length = int(self.headers.get("Content-Length", "0"))
@@ -39,7 +39,7 @@ class CalculatorHandler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(raw.decode() or "null")
         except json.JSONDecodeError:
-            logger.debug("calculate user info unreadable")
+            logger.debug("plus user info unreadable")
             self._send(400, {"error": "a number is missing or is not a number"})
             return
         _debug_user_info(payload)
@@ -64,7 +64,7 @@ def serve(host, port):
 
 def main():
     server = serve("127.0.0.1", 8000)
-    print("calculator listening on http://127.0.0.1:8000/calculate")
+    print("calculator listening on http://127.0.0.1:8000/plus")
     server.serve_forever()
 
 
