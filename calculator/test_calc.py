@@ -42,7 +42,7 @@ class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = serve("127.0.0.1", 0)
-        cls.url = "http://127.0.0.1:%s/calculate" % cls.server.server_address[1]
+        cls.url = "http://127.0.0.1:%s/plus" % cls.server.server_address[1]
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 

@@ -16,7 +16,7 @@ def outcome(payload):
 
 class CalculatorHandler(BaseHTTPRequestHandler):
     def do_POST(self):
-        if self.path != "/calculate":
+        if self.path != "/plus":
             self._send(404, {"error": "unknown operation"})
             return
         length = int(self.headers.get("Content-Length", "0"))
@@ -47,7 +47,7 @@ def serve(host, port):
 
 def main():
     server = serve("127.0.0.1", 8000)
-    print("calculator listening on http://127.0.0.1:8000/calculate")
+    print("calculator listening on http://127.0.0.1:8000/plus")
     server.serve_forever()
 
 
