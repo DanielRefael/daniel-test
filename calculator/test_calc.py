@@ -42,7 +42,7 @@ class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = serve("127.0.0.1", 0)
-        cls.url = "http://127.0.0.1:%s/plus" % cls.server.server_address[1]
+        cls.url = "http://127.0.0.1:%s/calculate" % cls.server.server_address[1]
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
@@ -76,9 +76,9 @@ class ApiTests(unittest.TestCase):
             with error:
                 return error.code, json.loads(error.read().decode())
 
-    def test_calculate_and_other_addresses_are_unknown(self):
+    def test_plus_and_other_addresses_are_unknown(self):
         payload = {"operation": "add", "a": 1, "b": 2}
-        for path in ("/calculate", "/nope"):
+        for path in ("/plus", "/nope"):
             status, body = self.post_path(path, payload)
             self.assertEqual(status, 404)
             self.assertEqual(body, {"error": "unknown operation"})
@@ -104,14 +104,14 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertNotIn("result", body)
 
-    def test_plus_logs_user_info_at_debug(self):
+    def test_calculate_logs_user_info_at_debug(self):
         with self.assertLogs("calculator.server", level="DEBUG") as captured:
             status, body = self.post({"operation": "add", "a": 1, "b": 2})
         self.assertEqual(status, 200)
         self.assertEqual(body, {"result": 3})
         self.assertTrue(
             any(
-                "plus" in line
+                "calculate" in line
                 and "user info" in line
                 and "operation=add" in line
                 and "a=1" in line
@@ -120,7 +120,7 @@ class ApiTests(unittest.TestCase):
             )
         )
 
-    def test_plus_logs_unreadable_user_info_and_keeps_the_error(self):
+    def test_calculate_logs_unreadable_user_info_and_keeps_the_error(self):
         data = b"not-json"
         request = urllib.request.Request(
             self.url, data=data, headers={"Content-Type": "application/json"}
@@ -135,7 +135,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertNotIn("result", body)
         self.assertTrue(
-            any("plus" in line and "user info unreadable" in line for line in captured.output)
+            any("calculate" in line and "user info unreadable" in line for line in captured.output)
         )
 
 
