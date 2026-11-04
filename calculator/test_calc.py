@@ -42,7 +42,7 @@ class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = serve("127.0.0.1", 0)
-        cls.url = "http://127.0.0.1:%s/calculate" % cls.server.server_address[1]
+        cls.url = "http://127.0.0.1:%s/plus" % cls.server.server_address[1]
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
@@ -76,9 +76,9 @@ class ApiTests(unittest.TestCase):
             with error:
                 return error.code, json.loads(error.read().decode())
 
-    def test_plus_and_other_addresses_are_unknown(self):
+    def test_calculate_and_other_addresses_are_unknown(self):
         payload = {"operation": "add", "a": 1, "b": 2}
-        for path in ("/plus", "/nope"):
+        for path in ("/calculate", "/nope"):
             status, body = self.post_path(path, payload)
             self.assertEqual(status, 404)
             self.assertEqual(body, {"error": "unknown operation"})
